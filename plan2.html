@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>plan2 - AP 설계팀 HW Debugging 자동화</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #111; padding: 48px 40px; display: flex; flex-direction: column; gap: 32px; align-items: center; }
+    .slide { width: 960px; height: 540px; font-family: 'Pretendard', sans-serif; overflow: hidden; position: relative; flex-shrink: 0; }
+
+    /* ── SHARED ── */
+    .header-bar {
+      position: absolute; top: 0; left: 0; right: 0; height: 80px;
+      background: linear-gradient(180deg, #0D1B3A 0%, transparent 100%);
+      display: flex; align-items: center; padding: 0 56px;
+      border-bottom: 1px solid #1A2E50;
+    }
+    .section-badge { font-size: 11px; font-weight: 600; letter-spacing: 2px; margin-right: 16px; }
+    .header-bar h2 { font-size: 22px; font-weight: 800; color: #FFFFFF; }
+    .slide-body { position: absolute; top: 80px; left: 0; right: 0; bottom: 0; }
+
+    /* ── SLIDE 1: TITLE ── */
+    .s1 { background: #05091A; }
+    .s1 .grid {
+      position: absolute; inset: 0; opacity: .12;
+      background-image: linear-gradient(#00D4FF 1px,transparent 1px), linear-gradient(90deg,#00D4FF 1px,transparent 1px);
+      background-size: 60px 60px;
+    }
+    .s1 .dots {
+      position: absolute; inset: 0; opacity: .18;
+      background-image: radial-gradient(circle,#00D4FF 1.5px,transparent 1.5px);
+      background-size: 60px 60px; background-position: 30px 30px;
+    }
+    .s1 .glow { position: absolute; top:0; left:0; right:0; height:3px; background: linear-gradient(90deg,transparent,#00D4FF,#00FFD1,transparent); }
+    .s1 .glow-b { position: absolute; bottom:0; left:0; right:0; height:3px; background: linear-gradient(90deg,transparent,#00D4FF,#00FFD1,transparent); }
+    .s1 .corner-tl { position:absolute; top:40px; left:48px; width:80px; height:80px; border-left:2px solid #00D4FF33; border-top:2px solid #00D4FF33; }
+    .s1 .corner-br { position:absolute; bottom:40px; right:48px; width:120px; height:120px; border-right:2px solid #00D4FF33; border-bottom:2px solid #00D4FF33; }
+    .s1 .content { position:relative; z-index:1; height:100%; display:flex; flex-direction:column; justify-content:center; padding:60px 80px; }
+    .s1 .tag {
+      display:inline-flex; align-items:center; gap:8px;
+      background:#00D4FF18; border:1px solid #00D4FF44; border-radius:20px;
+      padding:6px 16px; margin-bottom:32px; width:fit-content;
+    }
+    .s1 .tag .dot { width:6px; height:6px; background:#00D4FF; border-radius:50%; }
+    .s1 .tag span { font-size:13px; font-weight:500; color:#00D4FF; letter-spacing:1px; }
+    .s1 .title { font-size:46px; font-weight:800; color:#FFF; line-height:1.25; margin-bottom:20px; letter-spacing:-1px; }
+    .s1 .title .c { color:#00D4FF; }
+    .s1 .sub { font-size:18px; font-weight:400; color:#7A9BBF; margin-bottom:48px; }
+    .s1 .meta { display:flex; gap:32px; }
+    .s1 .ml { font-size:11px; font-weight:500; color:#1A8899; letter-spacing:1.5px; }
+    .s1 .mv { font-size:15px; font-weight:600; color:#C8DCF0; }
+
+    /* ── SLIDE 2: TOC ── */
+    .s2 { background: #080D1F; }
+    .s2 .left { position:absolute; left:0; top:0; bottom:0; width:280px; background:linear-gradient(180deg,#0D1A3A,#08122A); border-right:1px solid #1E3A5F; display:flex; flex-direction:column; justify-content:center; padding:48px 40px; }
+    .s2 .left .num { font-size:11px; font-weight:600; color:#00D4FF66; letter-spacing:2px; margin-bottom:16px; }
+    .s2 .left h2 { font-size:28px; font-weight:800; color:#FFF; line-height:1.3; margin-bottom:16px; }
+    .s2 .divider { width:40px; height:2px; background:#00D4FF; margin-bottom:16px; }
+    .s2 .left p { font-size:13px; color:#5A7A9A; line-height:1.6; }
+    .s2 .right { position:absolute; left:280px; right:0; top:0; bottom:0; display:flex; flex-direction:column; justify-content:center; padding:48px 56px; gap:20px; }
+    .s2 .toc { display:flex; align-items:center; gap:20px; padding:16px 20px; border-radius:8px; border:1px solid #1A2E50; background:#0A1225; }
+    .s2 .toc.active { border-color:#00D4FF33; background:#0A1830; }
+    .s2 .toc .n { width:36px; height:36px; border-radius:50%; border:2px solid #1E3A5F; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; color:#00D4FF; flex-shrink:0; }
+    .s2 .toc.active .n { border-color:#00D4FF; background:#00D4FF18; }
+    .s2 .toc .t { font-size:15px; font-weight:700; color:#D8EAF8; margin-bottom:2px; }
+    .s2 .toc .d { font-size:12px; color:#4A6A8A; }
+
+    /* ── SLIDE 3: HW DEBUGGING ── */
+    .s3 { background: #07101F; }
+    .s3 .body { position:absolute; top:80px; left:0; right:0; bottom:0; padding:36px 56px; }
+    .s3 .intro { font-size:16px; color:#7A9BBF; margin-bottom:32px; line-height:1.6; max-width:560px; }
+    .s3 .intro strong { color:#C8DCF0; font-weight:700; }
+    .s3 .flow { display:flex; align-items:center; }
+    .s3 .step { display:flex; flex-direction:column; align-items:center; gap:12px; }
+    .s3 .step .icon { width:72px; height:72px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:28px; }
+    .s3 .step .lbl { font-size:13px; font-weight:700; color:#A8C8E8; text-align:center; }
+    .s3 .step .sub { font-size:11px; color:#4A6A8A; text-align:center; }
+    .s3 .arrow { padding:0 8px; margin-bottom:36px; font-size:18px; color:#1E4A6A; }
+    .s3 .callout { margin-top:28px; padding:14px 20px; background:#FF4A4A10; border:1px solid #FF4A4A30; border-radius:8px; display:flex; align-items:flex-start; gap:12px; max-width:760px; }
+    .s3 .callout p { font-size:13px; color:#F0A0A0; line-height:1.6; }
+
+    /* ── SLIDE 4: BOTTLENECK BEFORE/AFTER ── */
+    .s4 { background: #07101F; }
+    .s4 .body { position:absolute; top:80px; left:0; right:0; bottom:0; display:flex; gap:0; }
+    .s4 .col { flex:1; padding:28px 32px; display:flex; flex-direction:column; gap:14px; }
+    .s4 .col-label { font-size:10px; font-weight:700; letter-spacing:2px; margin-bottom:4px; }
+    .s4 .before-label { color:#FF6B6B; }
+    .s4 .after-label { color:#00FFD1; }
+    .s4 .col-divider { width:1px; background:linear-gradient(180deg,transparent,#1E3A5F,transparent); margin:28px 0; }
+    .s4 .flow-step {
+      display:flex; align-items:center; gap:12px; padding:12px 16px;
+      border-radius:8px; border:1px solid #1A2E50; background:#0A1220;
+    }
+    .s4 .flow-step .icon { font-size:20px; flex-shrink:0; }
+    .s4 .flow-step .info .t { font-size:13px; font-weight:700; color:#D8EAF8; }
+    .s4 .flow-step .info .d { font-size:11px; color:#3A5A7A; margin-top:2px; }
+    .s4 .flow-arrow { font-size:16px; color:#1E3A5F; text-align:center; }
+    .s4 .bottleneck-tag {
+      background:#FF4A4A18; border:1px solid #FF4A4A44; border-radius:6px;
+      padding:6px 12px; font-size:11px; font-weight:700; color:#FF6B6B;
+      display:inline-block; margin-left:auto;
+    }
+    .s4 .after-step {
+      display:flex; align-items:center; gap:12px; padding:16px 20px;
+      border-radius:10px; border:1px solid #00FFD133; background:#001A14;
+    }
+    .s4 .after-step .icon { font-size:24px; flex-shrink:0; }
+    .s4 .after-step .t { font-size:14px; font-weight:700; color:#00FFD1; }
+    .s4 .after-step .d { font-size:11px; color:#3A7A6A; margin-top:3px; }
+    .s4 .result-box {
+      background:#001A14; border:2px solid #00FFD144; border-radius:12px;
+      padding:20px 24px; text-align:center; margin-top:8px;
+    }
+    .s4 .result-box .big { font-size:32px; font-weight:900; color:#00FFD1; margin-bottom:6px; }
+    .s4 .result-box .desc { font-size:12px; color:#3A7A6A; line-height:1.5; }
+
+    /* ── SLIDE 5: SPEC DATA ASSET ── */
+    .s5 { background: #05091A; }
+    .s5 .amber-top { position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,transparent,#FFB800,#FF8C00,transparent); }
+    .s5 .header-bar { background:linear-gradient(180deg,#1A130A 0%,transparent 100%); border-bottom-color:#3A2A0E; }
+    .s5 .body { position:absolute; top:80px; left:0; right:0; bottom:0; display:flex; }
+    .s5 .left { width:400px; padding:28px 40px 28px 56px; }
+    .s5 .intro-text { font-size:13px; color:#7A8AAA; line-height:1.7; margin-bottom:24px; }
+    .s5 .intro-text strong { color:#C8DCF0; font-weight:700; }
+    .s5 .reason-item { display:flex; align-items:flex-start; gap:12px; margin-bottom:16px; padding:14px 18px; background:#0A1220; border-radius:8px; border-left:3px solid #FFB800; }
+    .s5 .reason-item .icon { font-size:20px; flex-shrink:0; }
+    .s5 .reason-item .t { font-size:13px; font-weight:700; color:#D0C0A0; margin-bottom:3px; }
+    .s5 .reason-item .d { font-size:11px; color:#4A6A8A; line-height:1.5; }
+    .s5 .right { flex:1; padding:28px 48px 28px 24px; display:flex; flex-direction:column; gap:16px; justify-content:center; }
+    .s5 .insight-box { background:#1A1200; border:1px solid #FFB80033; border-radius:12px; padding:24px; }
+    .s5 .insight-box .t { font-size:11px; font-weight:700; color:#FFB800; letter-spacing:1.5px; margin-bottom:10px; }
+    .s5 .insight-box .body-text { font-size:13px; color:#C0A870; line-height:1.7; }
+    .s5 .db-box { background:#0A0F1E; border:1px solid #1E3A5F; border-radius:10px; padding:18px 20px; }
+    .s5 .db-box .t { font-size:11px; font-weight:600; color:#3A5A7A; letter-spacing:1px; margin-bottom:12px; }
+    .s5 .db-stats { display:flex; gap:12px; }
+    .s5 .db-stat .num { font-size:24px; font-weight:900; line-height:1; }
+    .s5 .db-stat .lbl { font-size:10px; color:#3A5A7A; margin-top:4px; }
+
+    /* ── SLIDE 6: PREREQUISITE ── */
+    .s6 { background: #03060F; }
+    .s6 .content { position:relative; z-index:1; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:60px 80px; text-align:center; }
+    .s6 .eyebrow { font-size:12px; font-weight:600; color:#1A8899; letter-spacing:3px; margin-bottom:24px; }
+    .s6 .big { font-size:34px; font-weight:900; color:#FFF; line-height:1.3; margin-bottom:32px; }
+    .s6 .big .c { color:#00D4FF; }
+    .s6 .eq { display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:center; margin-bottom:36px; }
+    .s6 .eq-box { background:#0A1828; border:1px solid #1E3A5F; border-radius:10px; padding:12px 18px; font-size:13px; font-weight:700; color:#A8C8E8; }
+    .s6 .eq-box.hl { background:#002233; border-color:#006688; color:#00D4FF; }
+    .s6 .eq-op { font-size:20px; font-weight:800; color:#2A4A6A; }
+    .s6 .warn { background:#1A0A0A; border:1px solid #3A1010; border-radius:8px; padding:12px 24px; font-size:12px; color:#8A5A5A; }
+
+    /* ── SLIDE 7: TWO ASSETS ── */
+    .s7 { background: #07101F; }
+    .s7 .body { position:absolute; top:80px; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; padding:20px 56px; gap:20px; }
+    .s7 .abox { background:#0A1525; border-radius:14px; padding:28px 20px; text-align:center; }
+    .s7 .abox.spec { border:1px solid #FFB80055; }
+    .s7 .abox.reg { border:1px solid #00D4FF55; }
+    .s7 .abox .icon { font-size:36px; margin-bottom:12px; }
+    .s7 .abox .name { font-size:15px; font-weight:800; margin-bottom:8px; }
+    .s7 .abox .desc { font-size:11px; color:#3A5A7A; line-height:1.6; }
+    .s7 .abox.spec .name { color:#FFD070; }
+    .s7 .abox.reg .name { color:#70D4FF; }
+    .s7 .connector { display:flex; flex-direction:column; align-items:center; gap:8px; }
+    .s7 .cline { width:48px; height:2px; background:linear-gradient(90deg,#FFB80060,#00D4FF60); }
+    .s7 .clabel { font-size:10px; font-weight:700; color:#00FFD1; letter-spacing:1px; white-space:nowrap; }
+    .s7 .rbox { background:linear-gradient(135deg,#001A2A,#001A1A); border-radius:16px; border:2px solid #00FFD155; padding:28px 20px; text-align:center; }
+    .s7 .rbox .icon { font-size:40px; margin-bottom:12px; }
+    .s7 .rbox .name { font-size:16px; font-weight:800; color:#00FFD1; margin-bottom:8px; }
+    .s7 .rbox .desc { font-size:11px; color:#3A7A6A; line-height:1.6; }
+    .s7 .bottom { position:absolute; bottom:24px; left:0; right:0; text-align:center; font-size:13px; color:#2A6A5A; }
+    .s7 .bottom strong { color:#00FFD1; }
+
+    /* ── SLIDE 8: ARCHITECTURE ── */
+    .s8 { background: #05091A; }
+    .s8 .grid { position:absolute; inset:0; opacity:.06; background-image:linear-gradient(#00D4FF 1px,transparent 1px),linear-gradient(90deg,#00D4FF 1px,transparent 1px); background-size:40px 40px; }
+    .s8 .body { position:absolute; top:80px; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; padding:16px 56px; gap:12px; }
+    .s8 .col-lbl { font-size:10px; font-weight:700; color:#2A4A6A; letter-spacing:1.5px; text-align:center; margin-bottom:10px; }
+    .s8 .ablock { background:#0A1525; border-radius:10px; padding:14px 16px; display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+    .s8 .ablock.spec { border:1px solid #FFB80033; }
+    .s8 .ablock.reg { border:1px solid #00D4FF33; }
+    .s8 .ablock .icon { font-size:20px; flex-shrink:0; }
+    .s8 .ablock .name { font-size:12px; font-weight:700; }
+    .s8 .ablock .det { font-size:10px; color:#3A5A7A; }
+    .s8 .ablock.spec .name { color:#FFD070; }
+    .s8 .ablock.reg .name { color:#70D4FF; }
+    .s8 .engine { background:linear-gradient(135deg,#0A1F3A,#081828); border:2px solid #00D4FF44; border-radius:14px; padding:24px 20px; text-align:center; height:180px; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:8px; }
+    .s8 .engine .icon { font-size:32px; }
+    .s8 .engine .name { font-size:13px; font-weight:800; color:#00D4FF; }
+    .s8 .engine .desc { font-size:10px; color:#2A5A7A; line-height:1.5; }
+    .s8 .output { background:linear-gradient(135deg,#0A2A1A,#081A10); border:2px solid #00FFD144; border-radius:14px; padding:24px 20px; text-align:center; width:200px; height:180px; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:8px; }
+    .s8 .output .icon { font-size:36px; }
+    .s8 .output .name { font-size:14px; font-weight:800; color:#00FFD1; }
+    .s8 .output .desc { font-size:10px; color:#2A6A4A; line-height:1.5; }
+    .s8 .arr { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; flex-shrink:0; }
+    .s8 .arr .line { width:28px; height:2px; background:linear-gradient(90deg,#1A3A5A,#00D4FF88); }
+    .s8 .arr .tip { font-size:14px; color:#00D4FF88; margin-top:-6px; }
+    .s8 .arr .lbl { font-size:9px; font-weight:600; color:#2A4A6A; letter-spacing:1px; white-space:nowrap; }
+
+    /* ── SLIDE 9: LIVE DEMO INTRO ── */
+    .s9 { background: #03060F; }
+    .s9 .content { position:relative; z-index:1; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px 80px; text-align:center; }
+    .s9 .badge { display:inline-flex; align-items:center; gap:10px; background:#00FFD118; border:1px solid #00FFD144; border-radius:24px; padding:8px 24px; margin-bottom:28px; }
+    .s9 .badge .dot { width:8px; height:8px; background:#00FFD1; border-radius:50%; animation:pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+    .s9 .badge span { font-size:14px; font-weight:700; color:#00FFD1; letter-spacing:2px; }
+    .s9 .title { font-size:40px; font-weight:900; color:#FFF; margin-bottom:16px; }
+    .s9 .sub { font-size:14px; color:#3A6A5A; margin-bottom:32px; }
+    .s9 .steps { display:flex; gap:0; align-items:flex-start; }
+    .s9 .step { display:flex; flex-direction:column; align-items:center; gap:10px; }
+    .s9 .step .num { width:40px; height:40px; border-radius:50%; background:#0A1828; border:2px solid #00FFD144; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:800; color:#00FFD1; }
+    .s9 .step .lbl { font-size:12px; font-weight:600; color:#5A9A8A; text-align:center; max-width:100px; line-height:1.4; }
+    .s9 .arrow-sep { font-size:18px; color:#1A4A3A; margin-top:12px; padding:0 8px; }
+
+    /* ── SLIDE 10: DEMO RESULT ── */
+    .s10 { background: #07101F; }
+    .s10 .header-bar { height:72px; }
+    .s10 .header-bar .live { display:flex; align-items:center; gap:6px; background:#00FFD118; border:1px solid #00FFD133; border-radius:12px; padding:4px 12px; margin-right:16px; }
+    .s10 .header-bar .live .dot { width:6px; height:6px; background:#00FFD1; border-radius:50%; }
+    .s10 .header-bar .live span { font-size:10px; font-weight:700; color:#00FFD1; letter-spacing:1px; }
+    .s10 .body { position:absolute; top:72px; left:0; right:0; bottom:0; display:flex; }
+    .s10 .ui { flex:1; margin:20px 12px 20px 44px; background:#0A1220; border-radius:12px; border:1px solid #1E3A5F; overflow:hidden; }
+    .s10 .ui-bar { background:#0D1A30; padding:9px 16px; border-bottom:1px solid #1A2E50; display:flex; align-items:center; gap:8px; }
+    .s10 .ui-bar .dots { display:flex; gap:5px; }
+    .s10 .ui-bar .d { width:8px; height:8px; border-radius:50%; }
+    .s10 .ui-bar .ttl { font-size:11px; color:#4A6A8A; margin-left:8px; }
+    .s10 .ui-body { padding:14px; display:flex; flex-direction:column; gap:9px; }
+    .s10 .row { border-radius:6px; padding:9px 12px; border-left:3px solid; display:flex; align-items:center; justify-content:space-between; background:#0D1A2A; }
+    .s10 .row .rname { font-size:11px; font-weight:700; color:#A8C8E8; font-family:'Courier New',monospace; }
+    .s10 .row .rval { font-size:10px; color:#3A5A7A; font-family:'Courier New',monospace; }
+    .s10 .row .badge { font-size:9px; font-weight:700; padding:2px 8px; border-radius:4px; border:1px solid; }
+    .s10 .row.ok { border-color:#00FFD1; }
+    .s10 .row.ok .badge { color:#00FFD1; border-color:#00FFD1; background:#00FFD110; }
+    .s10 .row.err { border-color:#FF4A4A; }
+    .s10 .row.err .badge { color:#FF4A4A; border-color:#FF4A4A; background:#FF4A4A10; }
+    .s10 .row.warn { border-color:#FFB800; }
+    .s10 .row.warn .badge { color:#FFB800; border-color:#FFB800; background:#FFB80010; }
+    .s10 .hl { width:280px; padding:20px 36px 20px 12px; display:flex; flex-direction:column; justify-content:center; gap:14px; }
+    .s10 .hl-item { background:#0A1525; border-radius:10px; border:1px solid #1E3A5F; padding:14px 16px; }
+    .s10 .hl-item .icon { font-size:18px; margin-bottom:5px; }
+    .s10 .hl-item .lbl { font-size:11px; font-weight:700; color:#00D4FF; margin-bottom:3px; }
+    .s10 .hl-item .desc { font-size:10px; color:#3A5A7A; line-height:1.5; }
+
+    /* ── SLIDE 11: COLLABORATION ── */
+    .s11 { background: #07101F; }
+    .s11 .body { position:absolute; top:80px; left:0; right:0; bottom:0; display:flex; }
+    .s11 .left { width:380px; padding:24px 28px 24px 56px; display:flex; flex-direction:column; gap:12px; }
+    .s11 .cblock { background:#0A1220; border-radius:10px; padding:14px 16px; }
+    .s11 .cblock .t { font-size:11px; font-weight:700; letter-spacing:1px; margin-bottom:7px; }
+    .s11 .cblock .d { font-size:12px; color:#5A7A9A; line-height:1.6; }
+    .s11 .cblock.hw { border:1px solid #FFB80033; }
+    .s11 .cblock.hw .t { color:#FFB800; }
+    .s11 .cblock.sw { border:1px solid #00D4FF33; }
+    .s11 .cblock.sw .t { color:#00D4FF; }
+    .s11 .cblock.co { border:1px solid #A070FF33; }
+    .s11 .cblock.co .t { color:#A070FF; }
+    .s11 .right { flex:1; padding:24px 44px 24px 20px; display:flex; flex-direction:column; gap:12px; }
+    .s11 .ch { display:flex; align-items:flex-start; gap:12px; padding:13px 14px; background:#0C1828; border-radius:8px; border-left:3px solid #A070FF55; }
+    .s11 .ch .icon { font-size:16px; }
+    .s11 .ch .t { font-size:12px; font-weight:700; color:#C0A8E8; margin-bottom:3px; }
+    .s11 .ch .d { font-size:11px; color:#3A5A7A; line-height:1.4; }
+    .s11 .badge { margin-top:4px; background:#0A1525; border:1px solid #1E3A5F; border-radius:8px; padding:11px 14px; font-size:11px; color:#3A6A8A; line-height:1.5; }
+
+    /* ── SLIDE 12: EVOLUTION ── */
+    .s12 { background: #07101F; }
+    .s12 .body { position:absolute; top:80px; left:0; right:0; bottom:0; display:flex; align-items:center; padding:20px 56px; gap:28px; }
+    .s12 .stage { flex:1; background:#0A1220; border-radius:14px; padding:24px 20px; display:flex; flex-direction:column; gap:14px; height:320px; }
+    .s12 .stage.cur { border:1px solid #00D4FF33; }
+    .s12 .stage.fut { border:1px solid #00FFD144; background:linear-gradient(135deg,#0A1A1A,#081820); }
+    .s12 .stage .lbl { font-size:10px; font-weight:700; letter-spacing:2px; }
+    .s12 .stage.cur .lbl { color:#00D4FF; }
+    .s12 .stage.fut .lbl { color:#00FFD1; }
+    .s12 .stage .ttl { font-size:17px; font-weight:800; color:#D8EAF8; line-height:1.3; }
+    .s12 .stage .item { display:flex; align-items:flex-start; gap:9px; font-size:12px; color:#4A7A9A; line-height:1.5; }
+    .s12 .stage.fut .item { color:#4A8A7A; }
+    .s12 .stage .dot { width:6px; height:6px; border-radius:50%; margin-top:6px; flex-shrink:0; }
+    .s12 .stage.cur .dot { background:#00D4FF55; }
+    .s12 .stage.fut .dot { background:#00FFD155; }
+    .s12 .mid { display:flex; flex-direction:column; align-items:center; gap:6px; }
+    .s12 .mid .lbl { font-size:10px; font-weight:600; color:#2A5A4A; text-align:center; white-space:nowrap; }
+    .s12 .mid .line { width:2px; height:36px; background:linear-gradient(180deg,#00D4FF44,#00FFD144); }
+
+    /* ── SLIDE 13: FRAMEWORK ── */
+    .s13 { background: #05091A; }
+    .s13 .accent { position:absolute; left:0; top:0; bottom:0; width:4px; background:linear-gradient(180deg,transparent,#00D4FF,#00FFD1,transparent); }
+    .s13 .body { position:absolute; top:80px; left:4px; right:0; bottom:0; display:flex; flex-direction:column; justify-content:center; padding:20px 56px; gap:18px; }
+    .s13 .intro { font-size:13px; color:#4A6A8A; margin-bottom:4px; }
+    .s13 .qblock { display:flex; align-items:flex-start; gap:18px; padding:18px 22px; background:#0A1525; border-radius:12px; }
+    .s13 .qblock .num { width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:900; flex-shrink:0; }
+    .s13 .qblock:nth-child(2) .num { background:#001A2A; color:#00D4FF; border:2px solid #006688; }
+    .s13 .qblock:nth-child(3) .num { background:#1A1000; color:#FFB800; border:2px solid #886600; }
+    .s13 .qblock:nth-child(4) .num { background:#001A14; color:#00FFD1; border:2px solid #006650; }
+    .s13 .qblock:nth-child(2) { border:1px solid #1E3A5F; }
+    .s13 .qblock:nth-child(3) { border:1px solid #2A1E00; }
+    .s13 .qblock:nth-child(4) { border:1px solid #0A2A1A; }
+    .s13 .qblock .q { font-size:15px; font-weight:700; color:#D8EAF8; margin-bottom:5px; line-height:1.35; }
+    .s13 .qblock .hint { font-size:11px; color:#3A5A7A; line-height:1.5; }
+
+    /* ── SLIDE 14: CLOSING ── */
+    .s14 { background: #05091A; }
+    .s14 .grid { position:absolute; inset:0; opacity:.08; background-image:linear-gradient(#00D4FF 1px,transparent 1px),linear-gradient(90deg,#00D4FF 1px,transparent 1px); background-size:60px 60px; }
+    .s14 .glow { position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,transparent,#00D4FF,#00FFD1,transparent); }
+    .s14 .glow-b { position:absolute; bottom:0; left:0; right:0; height:3px; background:linear-gradient(90deg,transparent,#00D4FF,#00FFD1,transparent); }
+    .s14 .content { position:relative; z-index:1; height:100%; display:flex; }
+    .s14 .left { flex:1; padding:52px 44px 52px 64px; display:flex; flex-direction:column; justify-content:center; }
+    .s14 .eyebrow { font-size:10px; font-weight:600; color:#1A8899; letter-spacing:3px; margin-bottom:18px; }
+    .s14 .closing-title { font-size:38px; font-weight:900; line-height:1.2; margin-bottom:22px; }
+    .s14 .closing-title .w { color:#FFF; }
+    .s14 .closing-title .c { color:#00D4FF; }
+    .s14 .quote { font-size:12px; color:#5A7A9A; line-height:1.8; margin-bottom:28px; padding-left:16px; border-left:2px solid #00D4FF33; }
+    .s14 .pills { display:flex; gap:8px; flex-wrap:wrap; }
+    .s14 .pill { background:#0A1828; border:1px solid #1E3A5F; border-radius:20px; padding:5px 14px; font-size:11px; color:#3A5A7A; }
+    .s14 .right { width:290px; padding:52px 44px 52px 20px; display:flex; flex-direction:column; justify-content:center; gap:14px; }
+    .s14 .invite { background:linear-gradient(135deg,#001020,#001818); border:1px solid #00FFD133; border-radius:14px; padding:22px 18px; text-align:center; }
+    .s14 .invite .icon { font-size:30px; margin-bottom:10px; }
+    .s14 .invite .t { font-size:14px; font-weight:800; color:#00FFD1; margin-bottom:8px; line-height:1.3; }
+    .s14 .invite .d { font-size:11px; color:#3A7A6A; line-height:1.5; }
+    .s14 .qa { background:#0A1220; border:1px solid #1E3A5F; border-radius:10px; padding:14px 18px; text-align:center; }
+    .s14 .qa .icon { font-size:22px; margin-bottom:4px; }
+    .s14 .qa .t { font-size:15px; font-weight:800; color:#5A8AB0; }
+  </style>
+</head>
+<body>
+
+<!-- ====== SLIDE 1: TITLE ====== -->
+<div class="slide s1">
+  <div class="grid"></div>
+  <div class="dots"></div>
+  <div class="glow"></div>
+  <div class="glow-b"></div>
+  <div class="corner-tl"></div>
+  <div class="corner-br"></div>
+  <div class="content">
+    <div class="tag"><div class="dot"></div><span>AI / 자동화 활용 사례 공유</span></div>
+    <div class="title">AP 설계팀의<br><span class="c">Hardware Debugging</span><br>Process 자동화</div>
+    <div class="sub">기존 데이터 자산 + 도메인 이해 + 단순한 도구 = 전문가의 반복 작업 제거</div>
+    <div class="meta">
+      <div><div class="ml">TEAM</div><div class="mv">AP 설계팀 SW 담당</div></div>
+      <div><div class="ml">DURATION</div><div class="mv">60분</div></div>
+      <div><div class="ml">DATE</div><div class="mv">2026</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SLIDE 2: TOC ====== -->
+<div class="slide s2">
+  <div class="left">
+    <div class="num">TODAY'S STORY</div>
+    <h2>오늘의<br>이야기</h2>
+    <div class="divider"></div>
+    <p>문제 발굴부터 솔루션까지,<br>그리고 당신 팀에서의 적용까지</p>
+  </div>
+  <div class="right">
+    <div class="toc active">
+      <div class="n">1</div>
+      <div><div class="t">문제: HW 디버깅 병목</div><div class="d">칩이 나왔다. 버그가 있다. 담당자 의존 구조의 병목</div></div>
+    </div>
+    <div class="toc">
+      <div class="n">2</div>
+      <div><div class="t">사전 준비: 데이터 자산화</div><div class="d">자동화 이전에 쌓아온 인프라의 가치</div></div>
+    </div>
+    <div class="toc">
+      <div class="n">3</div>
+      <div><div class="t">솔루션: 무엇을 만들었나</div><div class="d">아키텍처 + 라이브 데모</div></div>
+    </div>
+    <div class="toc">
+      <div class="n">4</div>
+      <div><div class="t">프레임워크: 당신 팀에서도</div><div class="d">자동화 기회를 발굴하는 3가지 질문</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SLIDE 3: HW DEBUGGING ====== -->
+<div class="slide s3" style="background:#07101F;">
+  <div class="header-bar">
+    <span class="section-badge" style="color:#00D4FF;">PART 1 · 문제</span>
+    <h2>HW 디버깅이란 무엇인가</h2>
+  </div>
+  <div class="body">
+    <div class="intro"><strong>칩이 처음 나왔다. 6개월, 수백억 원.</strong><br>그런데 버그가 있다. 어디서, 왜 발생했는지 찾아야 한다.</div>
+    <div class="flow">
+      <div class="step">
+        <div class="icon" style="background:#0A1F3A;border:2px solid #1E3A5F;">💡</div>
+        <div class="lbl">버그 발생</div><div class="sub">Silicon 동작 이상</div>
+      </div>
+      <div class="arrow">▶</div>
+      <div class="step">
+        <div class="icon" style="background:#0A1F3A;border:2px solid #1E3A5F;">📥</div>
+        <div class="lbl">Scandump</div><div class="sub">칩 상태 덤프</div>
+      </div>
+      <div class="arrow">▶</div>
+      <div class="step">
+        <div class="icon" style="background:#0F1A30;border:2px solid #1E3A5F;">📄</div>
+        <div class="lbl">Regbank 생성</div><div class="sub">수 MB 레지스터 파일</div>
+      </div>
+      <div class="arrow">▶</div>
+      <div class="step">
+        <div class="icon" style="background:#1C0A24;border:2px solid #4A1A60;">🔍</div>
+        <div class="lbl">수동 분석</div><div class="sub">전문가가 직접</div>
+      </div>
+      <div class="arrow">▶</div>
+      <div class="step">
+        <div class="icon" style="background:#0A2418;border:2px solid #1A5A30;">✅</div>
+        <div class="lbl">원인 파악</div><div class="sub">디버깅 완료</div>
+      </div>
+    </div>
+    <div class="callout">
+      <span style="font-size:20px;">⚠️</span>
+      <p>수 MB의 Regbank 파일을 <strong style="color:#F0C0C0;">담당자가 각자 보유한 스크립트로</strong> 분석해야 한다.<br>그런데 분석은 <strong style="color:#F0C0C0;">이슈가 담당자에게 할당되어야 비로소 시작</strong>된다. 이 구조가 병목이다.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SLIDE 4: BOTTLENECK — BEFORE/AFTER ====== -->
+<div class="slide s4">
+  <div class="header-bar">
+    <span class="section-badge" style="color:#FF6B6B;">PART 1 · 문제</span>
+    <h2>디버깅 병목: 담당자 의존 구조</h2>
+  </div>
+  <div class="body">
+    <!-- BEFORE -->
+    <div class="col" style="border-right:1px solid #1A2E50;">
+      <div class="col-label before-label">⚠️  BEFORE — 기존 구조</div>
+
+      <div class="flow-step">
+        <div class="icon">🐛</div>
+        <div class="info"><div class="t">이슈 발생</div><div class="d">버그가 리포트된다</div></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+
+      <div class="flow-step" style="border-color:#FF4A4A44;">
+        <div class="icon">🔎</div>
+        <div class="info">
+          <div class="t" style="color:#F0A0A0;">담당자 찾기</div>
+          <div class="d">어느 블록 담당자에게 할당해야 하나?</div>
+        </div>
+        <span class="bottleneck-tag">병목 ①</span>
+      </div>
+      <div class="flow-arrow">↓</div>
+
+      <div class="flow-step" style="border-color:#FF4A4A44;">
+        <div class="icon">⏳</div>
+        <div class="info">
+          <div class="t" style="color:#F0A0A0;">담당자 대기</div>
+          <div class="d">담당자가 할당을 확인하고 시간 내야 분석 시작</div>
+        </div>
+        <span class="bottleneck-tag">병목 ②</span>
+      </div>
+      <div class="flow-arrow">↓</div>
+
+      <div class="flow-step">
+        <div class="icon">📜</div>
+        <div class="info"><div class="t">개인 스크립트 실행</div><div class="d">각 담당자마다 다른 스크립트 보유</div></div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="col">
+      <div class="col-label after-label">✅  AFTER — 자동화 시스템</div>
+
+      <div class="after-step">
+        <div class="icon">🐛</div>
+        <div>
+          <div class="t">이슈 발생</div>
+          <div class="d">버그가 리포트된다</div>
+        </div>
+      </div>
+
+      <div style="text-align:center;font-size:24px;color:#00FFD155;margin:8px 0;">↓</div>
+
+      <div class="after-step" style="border-color:#00FFD166;background:#001E14;">
+        <div class="icon" style="font-size:28px;">🖥️</div>
+        <div>
+          <div class="t" style="font-size:16px;">Web UI에서 바로 확인</div>
+          <div class="d" style="font-size:12px;">담당자 할당 없이 누구나 즉시 분석 결과 열람</div>
+        </div>
+      </div>
+
+      <div class="result-box">
+        <div class="big">누구나 · 즉시</div>
+        <div class="desc">담당자를 찾고 대기하는 과정 없이<br>이슈 발생 즉시 분석 결과 확인 가능</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SLIDE 5: SPEC DATA ASSET ====== -->
+<div class="slide s5">
+  <div class="amber-top"></div>
+  <div class="header-bar" style="background:linear-gradient(180deg,#1A130A,transparent);border-bottom-color:#3A2A0E;">
+    <span class="section-badge" style="color:#FFB800;">PART 2 · 자산화</span>
+    <h2>전제조건: Spec 데이터 자산화</h2>
+  </div>
+  <div class="body">
+    <div class="left">
+      <div class="intro-text">이번 시스템이 가능했던 이유는<br><strong>설계팀 Spec 데이터를 미리 DB로 자산화</strong>해두었기 때문이다.</div>
+      <div class="reason-item">
+        <div class="icon">🗄️</div>
+        <div>
+          <div class="t">Spec 데이터 DB 구축</div>
+          <div class="d">레지스터 명세, 필드 정의, 기대값을 구조화된 DB로 축적</div>
+        </div>
+      </div>
+      <div class="reason-item">
+        <div class="icon">⏳</div>
+        <div>
+          <div class="t">당시엔 활용처가 불명확했다</div>
+          <div class="d">바로 쓸 곳은 없었지만, 꾸준히 쌓아왔다</div>
+        </div>
+      </div>
+      <div class="reason-item">
+        <div class="icon">⚡</div>
+        <div>
+          <div class="t">이 자산이 없었다면 불가능</div>
+          <div class="d">Regbank와 대조할 기준 데이터가 없으면<br>자동화 자체가 성립하지 않는다</div>
+        </div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="insight-box">
+        <div class="t">💡  핵심 인사이트</div>
+        <div class="body-text">
+          <strong style="color:#FFD070;">지금 당장 쓸모없어 보이는 데이터 수집이<br>미래의 자동화 가능성을 결정한다.</strong><br><br>
+          AI Agent / 자동화를 원한다면,<br>먼저 데이터를 자산화해야 한다.
+        </div>
+      </div>
+      <div class="db-box">
+        <div class="t">SPEC DB + REGBANK 연결</div>
+        <div class="db-stats">
+          <div class="db-stat" style="flex:1;text-align:center;">
+            <div class="num" style="color:#FFB800;">Spec DB</div>
+            <div class="lbl">기대값 / 필드 정의</div>
+          </div>
+          <div style="display:flex;align-items:center;font-size:20px;color:#1E3A5F;">+</div>
+          <div class="db-stat" style="flex:1;text-align:center;">
+            <div class="num" style="color:#00D4FF;">Regbank</div>
+            <div class="lbl">실제 덤프 데이터</div>
+          </div>
+          <div style="display:flex;align-items:center;font-size:20px;color:#1E3A5F;">=</div>
+          <div class="db-stat" style="flex:1;text-align:center;">
+            <div class="num" style="color:#00FFD1;">자동화</div>
+            <div class="lbl">가능성</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SLIDE 6: PREREQUISITE ====== -->
+<div class="slide s6">
+  <div class="content">
+    <div class="eyebrow">AI / 자동화의 전제조건</div>
+    <div class="big">자동화에 꼭 <span class="c">AI/ML이</span><br>필요하지 않다</div>
+    <div class="eq">
+      <div class="eq-box">기존 데이터 자산</div>
+      <div class="eq-op">+</div>
+      <div class="eq-box">도메인 이해</div>
+      <div class="eq-op">+</div>
+      <div class="eq-box">단순한 도구</div>
+      <div class="eq-op">=</div>
+      <div class="eq-box hl">전문가의<br>반복 작업 제거</div>
+    </div>
+    <div class="warn">⚠️  데이터가 없으면 LLM도, 파싱도, 어떤 자동화도 할 수 없다</div>
+  </div>
+</div>
+
+<!-- ====== SLIDE 7: TWO ASSETS ====== -->
+<div class="slide s7">
+  <div class="header-bar">
+    <span class="section-badge" style="color:#00FFD1;">PART 2 · 자산화</span>
+    <h2>두 자산의 연결</h2>
+  </div>
+  <div class="body">
+    <div class="abox spec" style="width:210px;">
+      <div class="icon">🗄️</div>
+      <div class="name">Spec DB</div>
+      <div class="desc">자산화된<br>레지스터 명세 데이터<br>기대값, 필드 정의 포함</div>
+    </div>
+    <div class="connector">
+      <div class="cline"></div>
+      <div class="clabel">연결</div>
+      <div class="cline"></div>
+    </div>
+    <div class="abox reg" style="width:210px;">
+      <div class="icon">📄</div>
+      <div class="name">Regbank 파일</div>
+      <div class="desc">디버그 세션마다<br>HW 팀이 항상 생성하는<br>실제 레지스터 덤프</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+      <div style="width:36px;height:2px;background:linear-gradient(90deg,#00D4FF44,#00FFD144);"></div>
+      <div style="font-size:18px;color:#00FFD188;">▶</div>
+      <div style="width:36px;height:2px;background:linear-gradient(90deg,#00D4FF44,#00FFD144);"></div>
+    </div>
+    <div class="rbox" style="width:220px;">
+      <div class="icon">⚡</div>
+      <div class="name">자동화 가능성</div>
+      <div class="desc">두 자산을 연결하면<br>수동 분석을<br>자동화할 수 있다</div>
+    </div>
+  </div>
+  <div class="bottom">HW 팀은 Regbank를 <strong>항상 생성하고 있었다</strong> — 연결만 하면 됐다</div>
+</div>
+
+<!-- ====== SLIDE 8: ARCHITECTURE ====== -->
+<div class="slide s8">
+  <div class="grid"></div>
+  <div class="header-bar" style="background:linear-gradient(180deg,#0D1B3A88,transparent);border-bottom-color:#1A2E5066;">
+    <span class="section-badge" style="color:#00D4FF;">PART 3 · 솔루션</span>
+    <h2>시스템 아키텍처</h2>
+  </div>
+  <div class="body">
+    <!-- INPUT col -->
+    <div style="width:210px;">
+      <div class="col-lbl">INPUT</div>
+      <div class="ablock spec">
+        <div class="icon">🗄️</div>
+        <div><div class="name">Spec Data DB</div><div class="det">레지스터 명세 / 기대값</div></div>
+      </div>
+      <div class="ablock reg">
+        <div class="icon">📁</div>
+        <div><div class="name">Regbank Storage</div><div class="det">이슈별 Regbank 보관</div></div>
+      </div>
+    </div>
+    <div class="arr">
+      <div class="lbl">파싱</div>
+      <div class="line"></div>
+      <div class="tip">▶</div>
+    </div>
+    <!-- ENGINE -->
+    <div style="width:230px;">
+      <div class="col-lbl">ENGINE</div>
+      <div class="engine">
+        <div class="icon">⚙️</div>
+        <div class="name">파싱 / 분석 엔진</div>
+        <div class="desc">Regbank 파싱<br>Spec과 대조 분석<br>이상값 / 정상값 분류</div>
+      </div>
+    </div>
+    <div class="arr">
+      <div class="lbl">결과</div>
+      <div class="line" style="background:linear-gradient(90deg,#00D4FF88,#00FFD188);"></div>
+      <div class="tip" style="color:#00FFD188;">▶</div>
+    </div>
+    <!-- OUTPUT -->
+    <div style="width:200px;">
+      <div class="col-lbl">OUTPUT</div>
+      <div class="output">
+        <div class="icon">🖥️</div>
+        <div class="name">Web UI</div>
+        <div class="desc">분석 결과 시각화<br>누구나 즉시 확인<br>이상값 하이라이트</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SLIDE 9: LIVE DEMO INTRO ====== -->
+<div class="slide s9" style="background:#03060F;">
+  <div class="content">
+    <div class="badge"><div class="dot"></div><span>LIVE DEMO</span></div>
+    <div class="title">직접 보여드리겠습니다</div>
+    <div class="sub">Regbank 파일 → 분석 엔진 → Web UI 결과</div>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><div class="lbl">Regbank 파일<br>업로드</div></div>
+      <div class="arrow-sep">›</div>
+      <div class="step"><div class="num">2</div><div class="lbl">처리 과정<br>시연</div></div>
+      <div class="arrow-sep">›</div>
+      <div class="step"><div class="num">3</div><div class="lbl">Web UI 결과<br>확인</div></div>
+      <div class="arrow-sep">›</div>
+      <div class="step"><div class="num">4</div><div class="lbl">수동 대비<br>시간 비교</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SLIDE 10: DEMO RESULT ====== -->
+<div class="slide s10">
+  <div class="header-bar" style="height:72px;">
+    <div class="live"><div class="dot"></div><span>LIVE DEMO</span></div>
+    <h2 style="font-size:18px;">분석 결과 하이라이트</h2>
+  </div>
+  <div class="body">
+    <div class="ui">
+      <div class="ui-bar">
+        <div class="dots">
+          <div class="d" style="background:#FF5F56;"></div>
+          <div class="d" style="background:#FEBC2E;"></div>
+          <div class="d" style="background:#28C840;"></div>
+        </div>
+        <div class="ttl">HW Debugging Analysis — Regbank Viewer</div>
+      </div>
+      <div class="ui-body">
+        <div class="row ok"><div><div class="rname">SYS_CTRL_REG</div><div class="rval">0x0000_0001 → Expected: 0x0000_0001</div></div><div class="badge">NORMAL</div></div>
+        <div class="row err"><div><div class="rname">PWR_STATE_REG</div><div class="rval">0x0000_00FF → Expected: 0x0000_0000</div></div><div class="badge">ERROR</div></div>
+        <div class="row warn"><div><div class="rname">CLK_DOMAIN_REG</div><div class="rval">0x0000_0003 → Expected: 0x0000_0001</div></div><div class="badge">WARN</div></div>
+        <div class="row ok"><div><div class="rname">INT_STATUS_REG</div><div class="rval">0x0000_0000 → Expected: 0x0000_0000</div></div><div class="badge">NORMAL</div></div>
+        <div class="row err"><div><div class="rname">MEM_CTRL_REG</div><div class="rval">0x0000_DEAD → Expected: 0x0000_0001</div></div><div class="badge">ERROR</div></div>
+      </div>
+    </div>
+    <div class="hl">
+      <div class="hl-item"><div class="icon">⚡</div><div class="lbl">즉각적 결과</div><div class="desc">파일 업로드 즉시 분석 완료</div></div>
+      <div class="hl-item"><div class="icon">🎯</div><div class="lbl">이상값 자동 감지</div><div class="desc">Spec 기대값과 비교해 ERROR / WARN 자동 분류</div></div>
+      <div class="hl-item"><div class="icon">👥</div><div class="lbl">담당자 없이 누구나</div><div class="desc">Web UI에서 바로 확인 — 할당 대기 없음</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SLIDE 11: COLLABORATION ====== -->
+<div class="slide s11">
+  <div class="header-bar">
+    <span class="section-badge" style="color:#A070FF;">PART 4 · 여정</span>
+    <h2>SW ↔ HW 협업 여정</h2>
+  </div>
+  <div class="body">
+    <div class="left">
+      <div class="cblock hw"><div class="t">🔧 HW 엔지니어의 역할</div><div class="d">도메인 문제 정의 — 어떤 레지스터가 중요한가? 어떤 기대값이어야 하는가? 디버깅 프로세스의 맥락</div></div>
+      <div class="cblock sw"><div class="t">💻 SW 담당자의 역할</div><div class="d">기술 구현 — HW 디버깅 도메인 지식 없이 시작. 도메인은 HW에게, 구현은 SW가 담당</div></div>
+      <div class="cblock co"><div class="t">🤝 핵심: 협업이 없었다면 불가능</div><div class="d">도메인 지식 없이 기술만으로는 올바른 자동화를 만들 수 없다</div></div>
+    </div>
+    <div class="right">
+      <div class="ch"><div class="icon">🧩</div><div><div class="t">디버깅 프로세스 도메인 이해</div><div class="d">SW 담당자가 HW 디버깅 프로세스를 이해하는 데 예상보다 시간이 걸렸다</div></div></div>
+      <div class="ch"><div class="icon">🔄</div><div><div class="t">Spec 데이터 정제 및 구조화</div><div class="d">축적된 데이터도 그대로 쓸 수 없었다. 정제와 구조화 작업 필요</div></div></div>
+      <div class="ch"><div class="icon">⚡</div><div><div class="t">엣지 케이스 처리</div><div class="d">예외적인 레지스터 상태, 특수 케이스들을 처리하는 과정이 까다로웠다</div></div></div>
+      <div class="badge">💡 <strong style="color:#00D4FF88;">기술적 단순함은 의도적 선택</strong> — 복잡하지 않게 만든 것이 강점. 도메인 문제에 집중하기 위해 기술 복잡도를 의도적으로 낮게 유지했다.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SLIDE 12: EVOLUTION ====== -->
+<div class="slide s12">
+  <div class="header-bar">
+    <span class="section-badge" style="color:#00FFD1;">PART 4 · 여정</span>
+    <h2>현재 한계 + 진화 가능성</h2>
+  </div>
+  <div class="body">
+    <div class="stage cur">
+      <div class="lbl">CURRENT</div>
+      <div class="ttl">파싱 / 분석<br>자동화 수준</div>
+      <div class="item"><div class="dot"></div>Regbank 파싱 자동화</div>
+      <div class="item"><div class="dot"></div>Spec 기대값과 대조</div>
+      <div class="item"><div class="dot"></div>이상값 자동 분류 및 표시</div>
+      <div class="item"><div class="dot"></div>Web UI로 누구나 확인</div>
+      <div class="item" style="color:#2A4A6A;"><div class="dot" style="background:#1A3A5F;"></div>파일럿 단계 — 측정 데이터 축적 중</div>
+    </div>
+    <div class="mid">
+      <div class="lbl">도메인<br>이해 ↑</div>
+      <div class="line"></div>
+      <div style="font-size:16px;color:#00FFD188;">▼</div>
+    </div>
+    <div class="stage fut">
+      <div class="lbl">FUTURE</div>
+      <div class="ttl">더 진화된<br>Agent</div>
+      <div class="item"><div class="dot"></div>디버깅 패턴 학습 및 추론</div>
+      <div class="item"><div class="dot"></div>문제 원인 자동 추론</div>
+      <div class="item"><div class="dot"></div>유사 과거 케이스 매칭</div>
+      <div class="item"><div class="dot"></div>진단 리포트 자동 생성</div>
+      <div class="item"><div class="dot"></div>도메인 지식이 쌓일수록 가능성 확대</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SLIDE 13: FRAMEWORK ====== -->
+<div class="slide s13">
+  <div class="accent"></div>
+  <div class="header-bar" style="left:4px;">
+    <span class="section-badge" style="color:#00D4FF;">PART 5 · 프레임워크</span>
+    <h2>당신 팀에서도 찾을 수 있다</h2>
+  </div>
+  <div class="body">
+    <div class="intro">자동화 기회를 발굴하는 3가지 질문 — 지금 5분, 자기 팀에 적용해보세요</div>
+    <div class="qblock">
+      <div class="num">1</div>
+      <div><div class="q">우리 팀에 반복적으로 수행하는 <strong style="color:#00D4FF;">전문가 작업</strong>이 있는가?</div><div class="hint">시니어만 할 수 있고, 자주 반복되며, 시간이 많이 걸리는 작업을 찾는다</div></div>
+    </div>
+    <div class="qblock">
+      <div class="num">2</div>
+      <div><div class="q">그 작업에 사용되는 데이터가 이미 <strong style="color:#FFB800;">어딘가에 구조화</strong>되어 있는가?</div><div class="hint">DB, 파일, 시스템 어딘가에 이미 존재하는 데이터를 발굴한다</div></div>
+    </div>
+    <div class="qblock">
+      <div class="num">3</div>
+      <div><div class="q">두 데이터를 <strong style="color:#00FFD1;">연결하면</strong> 자동화할 수 있는가?</div><div class="hint">데이터 연결 = 자동화 가능성. AI 없이도 단순한 도구로 시작할 수 있다</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== SLIDE 14: CLOSING ====== -->
+<div class="slide s14">
+  <div class="grid"></div>
+  <div class="glow"></div>
+  <div class="glow-b"></div>
+  <div class="content">
+    <div class="left">
+      <div class="eyebrow">CLOSING</div>
+      <div class="closing-title"><span class="w">함께<br></span><span class="c">고민</span><span class="w">해요</span></div>
+      <div class="quote">"자동화와 Agent를 더 발전시키고 싶은데,<br>어떤 Framework로 설계하면 좋을지 아직 고민 중입니다.<br>같은 고민을 하고 계신 분이 있다면<br>발표 후 함께 이야기 나눠보고 싶습니다."</div>
+      <div class="pills">
+        <span class="pill">문제 발굴</span>
+        <span class="pill">데이터 자산화</span>
+        <span class="pill">두 자산 연결</span>
+        <span class="pill">SW ↔ HW 협업</span>
+        <span class="pill">단순한 도구</span>
+      </div>
+    </div>
+    <div class="right">
+      <div class="invite">
+        <div class="icon">🤝</div>
+        <div class="t">발표 후<br>함께 이야기해요</div>
+        <div class="d">Agent Framework 설계,<br>자동화 기회 발굴,<br>비슷한 경험이 있으신 분 환영합니다</div>
+      </div>
+      <div class="qa">
+        <div class="icon">💬</div>
+        <div class="t">Q & A</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
